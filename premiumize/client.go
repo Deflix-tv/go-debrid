@@ -90,14 +90,25 @@ func NewClient(opts ClientOptions, apiKeyCache, availabilityCache debrid.Cache, 
 	}, nil
 }
 
-func (c *Client) TestAPIkey(ctx context.Context, keyOrToken string) error {
+// Auth carries authentication/authorization info for Premiumize.
+type Auth struct {
+	// Long lasting API key or expiring OAuth2 access token
+	KeyOrToken string
+	// Flag for indicating whether KeyOrToken is an OAuth2 access token
+	OAUTH2 bool
+	// The user's original IP. Only required if the library is used in an app on a machine
+	// whose outgoing IP is different from the machine that's going to request the cached file/stream URL.
+	IP string
+}
+
+func (c *Client) TestAPIkey(ctx context.Context, auth Auth) error {
 	zapFieldDebridSite := zap.String("debridSite", "Premiumize")
-	zapFieldAPIkey := zap.String("keyOrToken", keyOrToken)
+	zapFieldAPIkey := zap.String("keyOrToken", auth.KeyOrToken)
 	c.logger.Debug("Testing API key...", zapFieldDebridSite, zapFieldAPIkey)
 
 	// Check cache first.
 	// Note: Only when an API key is valid a cache item was created, becausean API key is probably valid for another 24 hours, while whenan API key is invalid it's likely that the user makes a payment to Premiumize to extend his premium status and make his API key valid again *within* 24 hours.
-	created, found, err := c.apiKeyCache.Get(keyOrToken)
+	created, found, err := c.apiKeyCache.Get(auth.KeyOrToken)
 	if err != nil {
 		c.logger.Error("Couldn't decode API key cache item", zap.Error(err), zapFieldDebridSite, zapFieldAPIkey)
 	} else if !found {
@@ -110,7 +121,7 @@ func (c *Client) TestAPIkey(ctx context.Context, keyOrToken string) error {
 		return nil
 	}
 
-	resBytes, err := c.get(ctx, c.baseURL+"/account/info", keyOrToken)
+	resBytes, err := c.get(ctx, c.baseURL+"/account/info", auth)
 	if err != nil {
 		return fmt.Errorf("Couldn't fetch user info from www.premiumize.me with the provided API key: %v", err)
 	}
@@ -122,16 +133,16 @@ func (c *Client) TestAPIkey(ctx context.Context, keyOrToken string) error {
 	c.logger.Debug("API key OK", zapFieldDebridSite, zapFieldAPIkey)
 
 	// Create cache item
-	if err = c.apiKeyCache.Set(keyOrToken); err != nil {
+	if err = c.apiKeyCache.Set(auth.KeyOrToken); err != nil {
 		c.logger.Error("Couldn't cache API key", zap.Error(err), zapFieldDebridSite, zapFieldAPIkey)
 	}
 
 	return nil
 }
 
-func (c *Client) CheckInstantAvailability(ctx context.Context, keyOrToken string, infoHashes ...string) []string {
+func (c *Client) CheckInstantAvailability(ctx context.Context, auth Auth, infoHashes ...string) []string {
 	zapFieldDebridSite := zap.String("debridSite", "Premiumize")
-	zapFieldAPItoken := zap.String("keyOrToken", keyOrToken)
+	zapFieldAPItoken := zap.String("keyOrToken", auth.KeyOrToken)
 
 	// Precondition check
 	if len(infoHashes) == 0 {
@@ -195,7 +206,7 @@ func (c *Client) CheckInstantAvailability(ctx context.Context, keyOrToken string
 	// Only make HTTP request if we didn't find all hashes in the cache yet
 	if requestRequired {
 		url := c.baseURL + "/cache/check"
-		resBytes, err := c.post(ctx, url, keyOrToken, unknownAvailabilityData, false)
+		resBytes, err := c.post(ctx, url, auth, unknownAvailabilityData, false)
 		if err != nil {
 			c.logger.Error("Couldn't check torrents' instant availability on www.premiumize.me", zap.Error(err), zapFieldDebridSite, zapFieldAPItoken)
 			return nil
@@ -223,18 +234,20 @@ func (c *Client) CheckInstantAvailability(ctx context.Context, keyOrToken string
 	return result
 }
 
-func (c *Client) GetStreamURL(ctx context.Context, magnetURL, keyOrToken string) (string, error) {
+func (c *Client) GetStreamURL(ctx context.Context, magnetURL string, auth Auth) (string, error) {
 	zapFieldDebridSite := zap.String("debridSite", "Premiumize")
-	zapFieldAPIkey := zap.String("keyOrToken", keyOrToken)
+	zapFieldAPIkey := zap.String("keyOrToken", auth.KeyOrToken)
 	c.logger.Debug("Adding magnet to Premiumize...", zapFieldDebridSite, zapFieldAPIkey)
 	data := url.Values{}
 	data.Set("src", magnetURL)
-	// Different from RealDebrid, Premiumize asks for the original IP only for directdl requests
-	if c.forwardOriginIP && ctx.Value("debrid_originIP") != nil {
-		ip := ctx.Value("debrid_originIP").(string)
-		data.Add("download_ip", ip)
+	// Premiumize asks for the original IP only for directdl requests
+	if c.forwardOriginIP {
+		if auth.IP == "" {
+			return "", errors.New("auth.IP is empty but client is configured to forward the user's original IP")
+		}
+		data.Add("download_ip", auth.IP)
 	}
-	resBytes, err := c.post(ctx, c.baseURL+"/transfer/directdl", keyOrToken, data, true)
+	resBytes, err := c.post(ctx, c.baseURL+"/transfer/directdl", auth, data, true)
 	if err != nil {
 		return "", fmt.Errorf("Couldn't add magnet to Premiumize: %v", err)
 	}
@@ -255,12 +268,11 @@ func (c *Client) GetStreamURL(ctx context.Context, magnetURL, keyOrToken string)
 	return ddlLink, nil
 }
 
-func (c *Client) get(ctx context.Context, url, keyOrToken string) ([]byte, error) {
-	useOAUTH2 := ctx.Value("debrid_OAUTH2") != nil
-	if useOAUTH2 {
-		url += "?access_token=" + keyOrToken
+func (c *Client) get(ctx context.Context, url string, auth Auth) ([]byte, error) {
+	if auth.OAUTH2 {
+		url += "?access_token=" + auth.KeyOrToken
 	} else {
-		url += "?apikey=" + keyOrToken
+		url += "?apikey=" + auth.KeyOrToken
 	}
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
@@ -289,12 +301,11 @@ func (c *Client) get(ctx context.Context, url, keyOrToken string) ([]byte, error
 	return ioutil.ReadAll(res.Body)
 }
 
-func (c *Client) post(ctx context.Context, urlString, keyOrToken string, data url.Values, form bool) ([]byte, error) {
-	useOAUTH2 := ctx.Value("debrid_OAUTH2") != nil
-	if useOAUTH2 {
-		urlString += "?access_token=" + keyOrToken
+func (c *Client) post(ctx context.Context, urlString string, auth Auth, data url.Values, form bool) ([]byte, error) {
+	if auth.OAUTH2 {
+		urlString += "?access_token=" + auth.KeyOrToken
 	} else {
-		urlString += "?apikey=" + keyOrToken
+		urlString += "?apikey=" + auth.KeyOrToken
 	}
 	var req *http.Request
 	var err error

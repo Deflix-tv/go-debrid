@@ -91,14 +91,23 @@ func NewClient(opts ClientOptions, tokenCache, availabilityCache debrid.Cache, l
 	}, nil
 }
 
-func (c *Client) TestToken(ctx context.Context, keyOrToken string) error {
+// Auth carries authentication/authorization info for RealDebrid.
+type Auth struct {
+	// Long lasting API key or expiring OAuth2 access token
+	KeyOrToken string
+	// The user's original IP. Only required if the library is used in an app on a machine
+	// whose outgoing IP is different from the machine that's going to request the cached file/stream URL.
+	IP string
+}
+
+func (c *Client) TestToken(ctx context.Context, auth Auth) error {
 	zapFieldDebridSite := zap.String("debridSite", "RealDebrid")
-	zapFieldAPItoken := zap.String("keyOrToken", keyOrToken)
+	zapFieldAPItoken := zap.String("keyOrToken", auth.KeyOrToken)
 	c.logger.Debug("Testing token...", zapFieldDebridSite, zapFieldAPItoken)
 
 	// Check cache first.
 	// Note: Only when a token is valid a cache item was created, because a token is probably valid for another 24 hours, while when a token is invalid it's likely that the user makes a payment to RealDebrid to extend his premium status and make his token valid again *within* 24 hours.
-	created, found, err := c.tokenCache.Get(keyOrToken)
+	created, found, err := c.tokenCache.Get(auth.KeyOrToken)
 	if err != nil {
 		c.logger.Error("Couldn't decode token cache item", zap.Error(err), zapFieldDebridSite, zapFieldAPItoken)
 	} else if !found {
@@ -111,7 +120,7 @@ func (c *Client) TestToken(ctx context.Context, keyOrToken string) error {
 		return nil
 	}
 
-	resBytes, err := c.get(ctx, c.baseURL+"/rest/1.0/user", keyOrToken)
+	resBytes, err := c.get(ctx, c.baseURL+"/rest/1.0/user", auth)
 	if err != nil {
 		return fmt.Errorf("Couldn't fetch user info from real-debrid.com with the provided token: %v", err)
 	}
@@ -122,16 +131,16 @@ func (c *Client) TestToken(ctx context.Context, keyOrToken string) error {
 	c.logger.Debug("Token OK", zapFieldDebridSite, zapFieldAPItoken)
 
 	// Create cache item
-	if err = c.tokenCache.Set(keyOrToken); err != nil {
+	if err = c.tokenCache.Set(auth.KeyOrToken); err != nil {
 		c.logger.Error("Couldn't cache API token", zap.Error(err), zapFieldDebridSite, zapFieldAPItoken)
 	}
 
 	return nil
 }
 
-func (c *Client) CheckInstantAvailability(ctx context.Context, keyOrToken string, infoHashes ...string) []string {
+func (c *Client) CheckInstantAvailability(ctx context.Context, auth Auth, infoHashes ...string) []string {
 	zapFieldDebridSite := zap.String("debridSite", "RealDebrid")
-	zapFieldAPItoken := zap.String("keyOrToken", keyOrToken)
+	zapFieldAPItoken := zap.String("keyOrToken", auth.KeyOrToken)
 
 	// Precondition check
 	if len(infoHashes) == 0 {
@@ -190,7 +199,7 @@ func (c *Client) CheckInstantAvailability(ctx context.Context, keyOrToken string
 
 	// Only make HTTP request if we didn't find all hashes in the cache yet
 	if requestRequired {
-		resBytes, err := c.get(ctx, url, keyOrToken)
+		resBytes, err := c.get(ctx, url, auth)
 		if err != nil {
 			c.logger.Error("Couldn't check torrents' instant availability on real-debrid.com", zap.Error(err), zapFieldDebridSite, zapFieldAPItoken)
 		} else {
@@ -214,13 +223,13 @@ func (c *Client) CheckInstantAvailability(ctx context.Context, keyOrToken string
 	return result
 }
 
-func (c *Client) GetStreamURL(ctx context.Context, magnetURL, keyOrToken string, remote bool) (string, error) {
+func (c *Client) GetStreamURL(ctx context.Context, magnetURL string, auth Auth, remote bool) (string, error) {
 	zapFieldDebridSite := zap.String("debridSite", "RealDebrid")
-	zapFieldAPItoken := zap.String("keyOrToken", keyOrToken)
+	zapFieldAPItoken := zap.String("keyOrToken", auth.KeyOrToken)
 	c.logger.Debug("Adding torrent to RealDebrid...", zapFieldDebridSite, zapFieldAPItoken)
 	data := url.Values{}
 	data.Set("magnet", magnetURL)
-	resBytes, err := c.post(ctx, c.baseURL+"/rest/1.0/torrents/addMagnet", keyOrToken, data)
+	resBytes, err := c.post(ctx, c.baseURL+"/rest/1.0/torrents/addMagnet", auth, data)
 	if err != nil {
 		return "", fmt.Errorf("Couldn't add torrent to RealDebrid: %v", err)
 	}
@@ -235,7 +244,7 @@ func (c *Client) GetStreamURL(ctx context.Context, magnetURL, keyOrToken string,
 	if err != nil {
 		return "", fmt.Errorf("Couldn't replace URL which was retrieved from an HTML link: %v", err)
 	}
-	resBytes, err = c.get(ctx, rdTorrentURL, keyOrToken)
+	resBytes, err = c.get(ctx, rdTorrentURL, auth)
 	if err != nil {
 		return "", fmt.Errorf("Couldn't get torrent info from real-debrid.com: %v", err)
 	}
@@ -259,7 +268,7 @@ func (c *Client) GetStreamURL(ctx context.Context, magnetURL, keyOrToken string,
 	c.logger.Debug("Adding torrent to RealDebrid downloads...", zapFieldDebridSite, zapFieldAPItoken)
 	data = url.Values{}
 	data.Set("files", fileID)
-	_, err = c.post(ctx, c.baseURL+"/rest/1.0/torrents/selectFiles/"+torrentID, keyOrToken, data)
+	_, err = c.post(ctx, c.baseURL+"/rest/1.0/torrents/selectFiles/"+torrentID, auth, data)
 	if err != nil {
 		return "", fmt.Errorf("Couldn't add torrent to RealDebrid downloads: %v", err)
 	}
@@ -272,7 +281,7 @@ func (c *Client) GetStreamURL(ctx context.Context, magnetURL, keyOrToken string,
 	waitForDownloadSeconds := 5
 	waitedForDownloadSeconds := 0
 	for torrentStatus != "downloaded" {
-		resBytes, err = c.get(ctx, rdTorrentURL, keyOrToken)
+		resBytes, err = c.get(ctx, rdTorrentURL, auth)
 		if err != nil {
 			return "", fmt.Errorf("Couldn't get torrent info from real-debrid.com: %v", err)
 		}
@@ -323,7 +332,7 @@ func (c *Client) GetStreamURL(ctx context.Context, magnetURL, keyOrToken string,
 	if remote {
 		data.Set("remote", "1")
 	}
-	resBytes, err = c.post(ctx, c.baseURL+"/rest/1.0/unrestrict/link", keyOrToken, data)
+	resBytes, err = c.post(ctx, c.baseURL+"/rest/1.0/unrestrict/link", auth, data)
 	if err != nil {
 		return "", fmt.Errorf("Couldn't unrestrict link: %v", err)
 	}
@@ -333,13 +342,13 @@ func (c *Client) GetStreamURL(ctx context.Context, magnetURL, keyOrToken string,
 	return streamURL, nil
 }
 
-func (c *Client) get(ctx context.Context, url, keyOrToken string) ([]byte, error) {
+func (c *Client) get(ctx context.Context, url string, auth Auth) ([]byte, error) {
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		return nil, fmt.Errorf("Couldn't create GET request: %v", err)
 	}
 
-	req.Header.Set("Authorization", "Bearer "+keyOrToken)
+	req.Header.Set("Authorization", "Bearer "+auth.KeyOrToken)
 	for headerKey, headerVal := range c.extraHeaders {
 		req.Header.Add(headerKey, headerVal)
 	}
@@ -368,17 +377,19 @@ func (c *Client) get(ctx context.Context, url, keyOrToken string) ([]byte, error
 	return ioutil.ReadAll(res.Body)
 }
 
-func (c *Client) post(ctx context.Context, url, keyOrToken string, data url.Values) ([]byte, error) {
-	// Different from Premiumize, RealDebrid asks for the original IP for all POST requests.
-	if c.forwardOriginIP && ctx.Value("debrid_originIP") != nil {
-		ip := ctx.Value("debrid_originIP").(string)
-		data.Add("ip", ip)
+func (c *Client) post(ctx context.Context, url string, auth Auth, data url.Values) ([]byte, error) {
+	// RealDebrid asks for the original IP for all POST requests.
+	if c.forwardOriginIP {
+		if auth.IP == "" {
+			return nil, errors.New("auth.IP is empty but client is configured to forward the user's original IP")
+		}
+		data.Add("ip", auth.IP)
 	}
 	req, err := http.NewRequest("POST", url, strings.NewReader(data.Encode()))
 	if err != nil {
 		return nil, fmt.Errorf("Couldn't create POST request: %v", err)
 	}
-	req.Header.Set("Authorization", "Bearer "+keyOrToken)
+	req.Header.Set("Authorization", "Bearer "+auth.KeyOrToken)
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	for headerKey, headerVal := range c.extraHeaders {
 		req.Header.Add(headerKey, headerVal)
