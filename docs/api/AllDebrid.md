@@ -1,0 +1,3 @@
+# AllDebrid API
+
+TODO
