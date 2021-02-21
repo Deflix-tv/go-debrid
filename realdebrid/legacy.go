@@ -17,7 +17,7 @@ import (
 	debrid "github.com/deflix-tv/go-debrid"
 )
 
-type ClientOptions struct {
+type LegacyClientOptions struct {
 	BaseURL      string
 	Timeout      time.Duration
 	CacheAge     time.Duration
@@ -26,23 +26,13 @@ type ClientOptions struct {
 	ForwardOriginIP bool
 }
 
-func NewClientOpts(baseURL string, timeout, cacheAge time.Duration, extraHeaders []string, forwardOriginIP bool) ClientOptions {
-	return ClientOptions{
-		BaseURL:         baseURL,
-		Timeout:         timeout,
-		CacheAge:        cacheAge,
-		ExtraHeaders:    extraHeaders,
-		ForwardOriginIP: forwardOriginIP,
-	}
-}
-
-var DefaultClientOpts = ClientOptions{
+var DefaultLegacyClientOpts = LegacyClientOptions{
 	BaseURL:  "https://api.real-debrid.com",
 	Timeout:  5 * time.Second,
 	CacheAge: 24 * time.Hour,
 }
 
-type Client struct {
+type LegacyClient struct {
 	baseURL    string
 	httpClient *http.Client
 	// For API token validity
@@ -55,7 +45,7 @@ type Client struct {
 	logger            *zap.Logger
 }
 
-func NewClient(opts ClientOptions, tokenCache, availabilityCache debrid.Cache, logger *zap.Logger) (*Client, error) {
+func NewLegacyClient(opts LegacyClientOptions, tokenCache, availabilityCache debrid.Cache, logger *zap.Logger) (*LegacyClient, error) {
 	// Precondition check
 	if opts.BaseURL == "" {
 		return nil, errors.New("opts.BaseURL must not be empty")
@@ -77,7 +67,7 @@ func NewClient(opts ClientOptions, tokenCache, availabilityCache debrid.Cache, l
 		}
 	}
 
-	return &Client{
+	return &LegacyClient{
 		baseURL: opts.BaseURL,
 		httpClient: &http.Client{
 			Timeout: opts.Timeout,
@@ -100,7 +90,7 @@ type Auth struct {
 	IP string
 }
 
-func (c *Client) TestToken(ctx context.Context, auth Auth) error {
+func (c *LegacyClient) TestToken(ctx context.Context, auth Auth) error {
 	zapFieldDebridSite := zap.String("debridSite", "RealDebrid")
 	zapFieldAPItoken := zap.String("keyOrToken", auth.KeyOrToken)
 	c.logger.Debug("Testing token...", zapFieldDebridSite, zapFieldAPItoken)
@@ -138,7 +128,7 @@ func (c *Client) TestToken(ctx context.Context, auth Auth) error {
 	return nil
 }
 
-func (c *Client) CheckInstantAvailability(ctx context.Context, auth Auth, infoHashes ...string) []string {
+func (c *LegacyClient) CheckInstantAvailability(ctx context.Context, auth Auth, infoHashes ...string) []string {
 	zapFieldDebridSite := zap.String("debridSite", "RealDebrid")
 	zapFieldAPItoken := zap.String("keyOrToken", auth.KeyOrToken)
 
@@ -223,7 +213,7 @@ func (c *Client) CheckInstantAvailability(ctx context.Context, auth Auth, infoHa
 	return result
 }
 
-func (c *Client) GetStreamURL(ctx context.Context, magnetURL string, auth Auth, remote bool) (string, error) {
+func (c *LegacyClient) GetStreamURL(ctx context.Context, magnetURL string, auth Auth, remote bool) (string, error) {
 	zapFieldDebridSite := zap.String("debridSite", "RealDebrid")
 	zapFieldAPItoken := zap.String("keyOrToken", auth.KeyOrToken)
 	c.logger.Debug("Adding torrent to RealDebrid...", zapFieldDebridSite, zapFieldAPItoken)
@@ -342,7 +332,7 @@ func (c *Client) GetStreamURL(ctx context.Context, magnetURL string, auth Auth, 
 	return streamURL, nil
 }
 
-func (c *Client) get(ctx context.Context, url string, auth Auth) ([]byte, error) {
+func (c *LegacyClient) get(ctx context.Context, url string, auth Auth) ([]byte, error) {
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		return nil, fmt.Errorf("Couldn't create GET request: %v", err)
@@ -377,7 +367,7 @@ func (c *Client) get(ctx context.Context, url string, auth Auth) ([]byte, error)
 	return ioutil.ReadAll(res.Body)
 }
 
-func (c *Client) post(ctx context.Context, url string, auth Auth, data url.Values) ([]byte, error) {
+func (c *LegacyClient) post(ctx context.Context, url string, auth Auth, data url.Values) ([]byte, error) {
 	// RealDebrid asks for the original IP for all POST requests.
 	if c.forwardOriginIP {
 		if auth.IP == "" {
