@@ -18,29 +18,20 @@ import (
 	debrid "github.com/deflix-tv/go-debrid"
 )
 
-type ClientOptions struct {
+type LegacyClientOptions struct {
 	BaseURL      string
 	Timeout      time.Duration
 	CacheAge     time.Duration
 	ExtraHeaders []string
 }
 
-func NewClientOpts(baseURL string, timeout, cacheAge time.Duration, extraHeaders []string) ClientOptions {
-	return ClientOptions{
-		BaseURL:      baseURL,
-		Timeout:      timeout,
-		CacheAge:     cacheAge,
-		ExtraHeaders: extraHeaders,
-	}
-}
-
-var DefaultClientOpts = ClientOptions{
+var DefaultLegacyClientOpts = LegacyClientOptions{
 	BaseURL:  "https://api.alldebrid.com",
 	Timeout:  5 * time.Second,
 	CacheAge: 24 * time.Hour,
 }
 
-type Client struct {
+type LegacyClient struct {
 	baseURL    string
 	httpClient *http.Client
 	// For API key validity
@@ -52,7 +43,7 @@ type Client struct {
 	logger            *zap.Logger
 }
 
-func NewClient(opts ClientOptions, apiKeyCache, availabilityCache debrid.Cache, logger *zap.Logger) (*Client, error) {
+func NewLegacyClient(opts LegacyClientOptions, apiKeyCache, availabilityCache debrid.Cache, logger *zap.Logger) (*LegacyClient, error) {
 	// Precondition check
 	if opts.BaseURL == "" {
 		return nil, errors.New("opts.BaseURL must not be empty")
@@ -74,7 +65,7 @@ func NewClient(opts ClientOptions, apiKeyCache, availabilityCache debrid.Cache, 
 		}
 	}
 
-	return &Client{
+	return &LegacyClient{
 		baseURL: opts.BaseURL,
 		httpClient: &http.Client{
 			Timeout: opts.Timeout,
@@ -87,7 +78,7 @@ func NewClient(opts ClientOptions, apiKeyCache, availabilityCache debrid.Cache, 
 	}, nil
 }
 
-func (c *Client) TestAPIkey(ctx context.Context, apiKey string) error {
+func (c *LegacyClient) TestAPIkey(ctx context.Context, apiKey string) error {
 	zapFieldDebridSite := zap.String("debridSite", "AllDebrid")
 	zapFieldAPIkey := zap.String("apiKey", apiKey)
 	c.logger.Debug("Testing API key...", zapFieldDebridSite, zapFieldAPIkey)
@@ -126,7 +117,7 @@ func (c *Client) TestAPIkey(ctx context.Context, apiKey string) error {
 	return nil
 }
 
-func (c *Client) CheckInstantAvailability(ctx context.Context, apiKey string, infoHashes ...string) []string {
+func (c *LegacyClient) CheckInstantAvailability(ctx context.Context, apiKey string, infoHashes ...string) []string {
 	zapFieldDebridSite := zap.String("debridSite", "AllDebrid")
 	zapFieldAPItoken := zap.String("apiKey", apiKey)
 
@@ -220,7 +211,7 @@ func (c *Client) CheckInstantAvailability(ctx context.Context, apiKey string, in
 	return result
 }
 
-func (c *Client) GetStreamURL(ctx context.Context, magnetURL, apiKey string) (string, error) {
+func (c *LegacyClient) GetStreamURL(ctx context.Context, magnetURL, apiKey string) (string, error) {
 	zapFieldDebridSite := zap.String("debridSite", "AllDebrid")
 	zapFieldAPIkey := zap.String("apiKey", apiKey)
 	c.logger.Debug("Adding magnet to AllDebrid...", zapFieldDebridSite, zapFieldAPIkey)
@@ -284,7 +275,7 @@ func (c *Client) GetStreamURL(ctx context.Context, magnetURL, apiKey string) (st
 	return streamURL, nil
 }
 
-func (c *Client) get(ctx context.Context, url, apiKey string) ([]byte, error) {
+func (c *LegacyClient) get(ctx context.Context, url, apiKey string) ([]byte, error) {
 	if strings.Contains(url, "?") {
 		url += "&agent=deflix&apikey=" + apiKey
 	} else {
@@ -320,7 +311,7 @@ func (c *Client) get(ctx context.Context, url, apiKey string) ([]byte, error) {
 	return ioutil.ReadAll(res.Body)
 }
 
-func (c *Client) post(ctx context.Context, url, apiKey string, data url.Values) ([]byte, error) {
+func (c *LegacyClient) post(ctx context.Context, url, apiKey string, data url.Values) ([]byte, error) {
 	url += "?agent=deflix&apikey=" + apiKey
 	req, err := http.NewRequest("POST", url, strings.NewReader(data.Encode()))
 	if err != nil {
