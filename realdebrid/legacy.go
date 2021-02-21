@@ -22,7 +22,9 @@ type LegacyClientOptions struct {
 	Timeout      time.Duration
 	CacheAge     time.Duration
 	ExtraHeaders []string
-	// When setting this to true, the user's original IP address is read from the context parameter with the key "debrid_originIP".
+	// When setting this to true, the user's original IP address is read from Auth.IP and forwarded to RealDebrid for all POST requests.
+	// Only required if the library is used in an app on a machine
+	// whose outgoing IP is different from the machine that's going to request the cached file/stream URL.
 	ForwardOriginIP bool
 }
 
@@ -79,15 +81,6 @@ func NewLegacyClient(opts LegacyClientOptions, tokenCache, availabilityCache deb
 		forwardOriginIP:   opts.ForwardOriginIP,
 		logger:            logger,
 	}, nil
-}
-
-// Auth carries authentication/authorization info for RealDebrid.
-type Auth struct {
-	// Long lasting API key or expiring OAuth2 access token
-	KeyOrToken string
-	// The user's original IP. Only required if the library is used in an app on a machine
-	// whose outgoing IP is different from the machine that's going to request the cached file/stream URL.
-	IP string
 }
 
 func (c *LegacyClient) TestToken(ctx context.Context, auth Auth) error {
