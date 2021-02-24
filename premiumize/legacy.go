@@ -16,7 +16,7 @@ import (
 	debrid "github.com/deflix-tv/go-debrid"
 )
 
-type ClientOptions struct {
+type LegacyClientOptions struct {
 	BaseURL      string
 	Timeout      time.Duration
 	CacheAge     time.Duration
@@ -25,23 +25,13 @@ type ClientOptions struct {
 	ForwardOriginIP bool
 }
 
-func NewClientOpts(baseURL string, timeout, cacheAge time.Duration, extraHeaders []string, forwardOriginIP bool) ClientOptions {
-	return ClientOptions{
-		BaseURL:         baseURL,
-		Timeout:         timeout,
-		CacheAge:        cacheAge,
-		ExtraHeaders:    extraHeaders,
-		ForwardOriginIP: forwardOriginIP,
-	}
-}
-
-var DefaultClientOpts = ClientOptions{
+var DefaultLegacyClientOpts = LegacyClientOptions{
 	BaseURL:  "https://www.premiumize.me/api",
 	Timeout:  5 * time.Second,
 	CacheAge: 24 * time.Hour,
 }
 
-type Client struct {
+type LegacyClient struct {
 	baseURL    string
 	httpClient *http.Client
 	// For API key validity
@@ -54,7 +44,7 @@ type Client struct {
 	logger            *zap.Logger
 }
 
-func NewClient(opts ClientOptions, apiKeyCache, availabilityCache debrid.Cache, logger *zap.Logger) (*Client, error) {
+func NewLegacyClient(opts LegacyClientOptions, apiKeyCache, availabilityCache debrid.Cache, logger *zap.Logger) (*LegacyClient, error) {
 	// Precondition check
 	if opts.BaseURL == "" {
 		return nil, errors.New("opts.BaseURL must not be empty")
@@ -76,7 +66,7 @@ func NewClient(opts ClientOptions, apiKeyCache, availabilityCache debrid.Cache, 
 		}
 	}
 
-	return &Client{
+	return &LegacyClient{
 		baseURL: opts.BaseURL,
 		httpClient: &http.Client{
 			Timeout: opts.Timeout,
@@ -101,7 +91,7 @@ type Auth struct {
 	IP string
 }
 
-func (c *Client) TestAPIkey(ctx context.Context, auth Auth) error {
+func (c *LegacyClient) TestAPIkey(ctx context.Context, auth Auth) error {
 	zapFieldDebridSite := zap.String("debridSite", "Premiumize")
 	zapFieldAPIkey := zap.String("keyOrToken", auth.KeyOrToken)
 	c.logger.Debug("Testing API key...", zapFieldDebridSite, zapFieldAPIkey)
@@ -140,7 +130,7 @@ func (c *Client) TestAPIkey(ctx context.Context, auth Auth) error {
 	return nil
 }
 
-func (c *Client) CheckInstantAvailability(ctx context.Context, auth Auth, infoHashes ...string) []string {
+func (c *LegacyClient) CheckInstantAvailability(ctx context.Context, auth Auth, infoHashes ...string) []string {
 	zapFieldDebridSite := zap.String("debridSite", "Premiumize")
 	zapFieldAPItoken := zap.String("keyOrToken", auth.KeyOrToken)
 
@@ -234,7 +224,7 @@ func (c *Client) CheckInstantAvailability(ctx context.Context, auth Auth, infoHa
 	return result
 }
 
-func (c *Client) GetStreamURL(ctx context.Context, magnetURL string, auth Auth) (string, error) {
+func (c *LegacyClient) GetStreamURL(ctx context.Context, magnetURL string, auth Auth) (string, error) {
 	zapFieldDebridSite := zap.String("debridSite", "Premiumize")
 	zapFieldAPIkey := zap.String("keyOrToken", auth.KeyOrToken)
 	c.logger.Debug("Adding magnet to Premiumize...", zapFieldDebridSite, zapFieldAPIkey)
@@ -268,7 +258,7 @@ func (c *Client) GetStreamURL(ctx context.Context, magnetURL string, auth Auth) 
 	return ddlLink, nil
 }
 
-func (c *Client) get(ctx context.Context, url string, auth Auth) ([]byte, error) {
+func (c *LegacyClient) get(ctx context.Context, url string, auth Auth) ([]byte, error) {
 	if auth.OAUTH2 {
 		url += "?access_token=" + auth.KeyOrToken
 	} else {
@@ -301,7 +291,7 @@ func (c *Client) get(ctx context.Context, url string, auth Auth) ([]byte, error)
 	return ioutil.ReadAll(res.Body)
 }
 
-func (c *Client) post(ctx context.Context, urlString string, auth Auth, data url.Values, form bool) ([]byte, error) {
+func (c *LegacyClient) post(ctx context.Context, urlString string, auth Auth, data url.Values, form bool) ([]byte, error) {
 	if auth.OAUTH2 {
 		urlString += "?access_token=" + auth.KeyOrToken
 	} else {
