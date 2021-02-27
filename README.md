@@ -1,8 +1,28 @@
 # go-debrid
 
-Go library for turning torrents into cached HTTP streams via debrid services like RealDebrid, AllDebrid and Premiumize
+[![Go Reference](https://pkg.go.dev/badge/github.com/deflix-tv/go-debrid.svg)](https://pkg.go.dev/github.com/deflix-tv/go-debrid)
+
+Go library for the public APIs of debrid services like [RealDebrid](https://real-debrid.com/), [AllDebrid](https://alldebrid.com/) and [Premiumize](https://www.premiumize.me/)
+
+## Features
+
+- Get user account info
+- Get instant availability (cache) info for a link / torrent
+- Add a link / torrent to a debrid service's downloads
+- Get status info about a link / torrent that the debrid service is downloading / has downloaded
+- Get the direct download link for a link / torrent after the debrid service has downloaded it
 
 ## Usage
+
+The library consists of a root-level package which contains a cache interface and example cache implementation, as well as subpackages for the specific debrid services. Each service-specific subpackage contains both a legacy client (the client from `v0.1.0`), and a low level client whose methods match the public API endpoints. In the future a common client will be added that has a generic interface and is backed by service-specific clients.
+
+Godoc:
+
+- [RealDebrid](https://pkg.go.dev/github.com/deflix-tv/go-debrid/realdebrid)
+- [AllDebrid](https://pkg.go.dev/github.com/deflix-tv/go-debrid/alldebrid)
+- [Premiumize](https://pkg.go.dev/github.com/deflix-tv/go-debrid/premiumize)
+
+### Example
 
 ```go
 package main
