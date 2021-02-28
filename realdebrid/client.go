@@ -162,12 +162,15 @@ func (c *Client) GetInstantAvailability(ctx context.Context, hashes ...string) (
 			availableFile := AvailableFile{}
 			if err := json.Unmarshal([]byte(value.Raw), &availableFile); err != nil {
 				c.logger.Error("Couldn't unmarshal available file", zap.Error(err), zap.String("availableFile", value.Raw), zapDebridService)
+				return true
 			}
 			availability[int(key.Int())] = availableFile
 			// Continue ForEach
 			return true
 		})
-		availabilities[availableHash] = availability
+		if len(availability) > 0 {
+			availabilities[availableHash] = availability
+		}
 		// Continue ForEach
 		return true
 	})
