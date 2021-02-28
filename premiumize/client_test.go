@@ -74,6 +74,6 @@ func TestClient(t *testing.T) {
 
 	dl, err := premiumize.SelectLargestFile(downloads)
 	require.NoError(t, err)
-	fmt.Printf("Link: %+v\n", dl.Link)
+	fmt.Printf("Largest download: %+v\n", dl)
 	require.NotEmpty(t, dl.Link)
 }

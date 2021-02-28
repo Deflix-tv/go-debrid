@@ -65,11 +65,13 @@ func TestClient(t *testing.T) {
 	// It's not regarded as downloaded if no file has been selected for download yet.
 	require.Equal(t, "waiting_files_selection", info.Status)
 
-	fileID, err := realdebrid.SelectLargestFile(info)
+	file, err := realdebrid.SelectLargestFile(info)
 	require.NoError(t, err)
+	fmt.Printf("Largest file: %+v\n", file)
+	require.NotEmpty(t, file.ID)
 
 	// "Download" file
-	err = client.SelectFiles(ctx, torrentID, fileID)
+	err = client.SelectFiles(ctx, torrentID, file.ID)
 	require.NoError(t, err)
 
 	// Get torrent info again.

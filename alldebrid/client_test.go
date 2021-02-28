@@ -57,10 +57,11 @@ func TestClient(t *testing.T) {
 
 	link, err := alldebrid.SelectLargestFile(status)
 	require.NoError(t, err)
-	require.NotEmpty(t, link)
+	fmt.Printf("Largest link: %+v\n", link)
+	require.NotEmpty(t, link.Link)
 
 	// Get HTTP download URL
-	dl, err := client.Unlock(ctx, link)
+	dl, err := client.Unlock(ctx, link.Link)
 	require.NoError(t, err)
 	fmt.Printf("Download: %+v\n", dl)
 	require.NotEmpty(t, dl.Link)

@@ -3,19 +3,19 @@ package realdebrid
 import "errors"
 
 // SelectLargestFile returns the file ID of the largest file in the torrent.
-func SelectLargestFile(info TorrentInfo) (int, error) {
-	largestID := -1
+func SelectLargestFile(info TorrentInfo) (File, error) {
+	var largestFile File
 	largestSize := 0
 
-	for i, file := range info.Files {
+	for _, file := range info.Files {
 		if file.Bytes > largestSize {
-			largestID = i
+			largestFile = file
 			largestSize = file.Bytes
 		}
 	}
-	if largestID == -1 {
-		return 0, errors.New("couldn't find largest file in torrent info")
+	if largestSize == 0 {
+		return File{}, errors.New("couldn't find largest file in torrent info")
 	}
 
-	return largestID, nil
+	return largestFile, nil
 }
