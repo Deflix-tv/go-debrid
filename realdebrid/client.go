@@ -80,7 +80,7 @@ func NewClient(opts ClientOptions, auth Auth, logger *zap.Logger) *Client {
 func (c *Client) GetUser(ctx context.Context) (User, error) {
 	c.logger.Debug("Getting user...", zapDebridService)
 
-	resBytes, err := c.get(ctx, c.opts.BaseURL+"/user")
+	resBytes, err := c.get(ctx, c.opts.BaseURL+"/user", nil)
 	if err != nil {
 		return User{}, fmt.Errorf("couldn't get user: %w", err)
 	}
@@ -117,12 +117,36 @@ func (c *Client) Unrestrict(ctx context.Context, link string, remote bool) (Down
 	return dl, nil
 }
 
+// GetTorrentsInfo fetches and returns info about up to 100 torrents that were added to RealDebrid for a specific user.
+// ActiveFirst leads to active torrents being the first in the returned list.
+func (c *Client) GetTorrentsInfo(ctx context.Context, activeFirst bool) ([]TorrentsInfo, error) {
+	c.logger.Debug("Getting torrents info...", zapDebridService)
+
+	data := url.Values{}
+	data.Set("offset", "0")
+	data.Set("limit", "100")
+	if activeFirst {
+		data.Set("filter", "active")
+	}
+	resBytes, err := c.get(ctx, c.opts.BaseURL+"/torrents", data)
+	if err != nil {
+		return nil, fmt.Errorf("couldn't get torrents info: %w", err)
+	}
+	info := []TorrentsInfo{}
+	if err = json.Unmarshal(resBytes, &info); err != nil {
+		return nil, fmt.Errorf("couldn't unmarshal torrents info: %w", err)
+	}
+
+	c.logger.Debug("Got torrents info", zap.String("torrentsInfo", fmt.Sprintf("%+v", info)), zapDebridService)
+	return info, nil
+}
+
 // GetTorrentInfo fetches and returns info about a torrent that was added to RealDebrid for a specific user.
 // The ID must be the one returned from RealDebrid when adding the torrent to RealDebrid.
 func (c *Client) GetTorrentInfo(ctx context.Context, id string) (TorrentInfo, error) {
 	c.logger.Debug("Getting torrent info...", zapDebridService)
 
-	resBytes, err := c.get(ctx, c.opts.BaseURL+"/torrents/info/"+id)
+	resBytes, err := c.get(ctx, c.opts.BaseURL+"/torrents/info/"+id, nil)
 	if err != nil {
 		return TorrentInfo{}, fmt.Errorf("couldn't get torrent info: %w", err)
 	}
@@ -143,7 +167,7 @@ func (c *Client) GetInstantAvailability(ctx context.Context, hashes ...string) (
 	for _, hash := range hashes {
 		hashParams += "/" + hash
 	}
-	resBytes, err := c.get(ctx, c.opts.BaseURL+"/torrents/instantAvailability"+hashParams)
+	resBytes, err := c.get(ctx, c.opts.BaseURL+"/torrents/instantAvailability"+hashParams, nil)
 	if err != nil {
 		return nil, fmt.Errorf("couldn't get instant availability: %w", err)
 	}

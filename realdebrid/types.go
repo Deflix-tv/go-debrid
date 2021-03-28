@@ -70,8 +70,38 @@ type Download struct {
 	Streamable int `json:"streamable,omitempty"`
 }
 
-// TorrentInfo contains info about a torrent that was added to RealDebrid for a specific user.
+// TorrentsInfo contains info about one element of a list of torrents that was added to RealDebrid for a specific user.
 // It contains download info (progress, selected files) after one or more files of the torrent were selected to be downloaded.
+// It's similar to TorrentInfo, but lacks some fields like OriginalFilename, OriginalBytes and Files.
+type TorrentsInfo struct {
+	ID       string `json:"id,omitempty"`
+	Filename string `json:"filename,omitempty"`
+	// SHA1 Hash of the torrent
+	Hash string `json:"hash,omitempty"`
+	// Size of selected files only
+	Bytes int `json:"bytes,omitempty"`
+	// Host main domain
+	Host string `json:"host,omitempty"`
+	// Split size of links
+	Split int `json:"split,omitempty"`
+	// Possible values: 0 to 100
+	Progress int `json:"progress,omitempty"`
+	// Current status of the torrent: magnet_error, magnet_conversion, waiting_files_selection, queued, downloading, downloaded, error, virus, compressing, uploading, dead
+	Status string    `json:"status,omitempty"`
+	Added  time.Time `json:"added,omitempty"`
+	// Host URLs
+	Links []string `json:"links,omitempty"`
+	// !! Only present when finished, jsonDate
+	Ended string `json:"ended,omitempty"`
+	// !! Only present in "downloading", "compressing", "uploading" status
+	Speed int `json:"speed,omitempty"`
+	// !! Only present in "downloading", "magnet_conversion" status
+	Seeders int `json:"seeders,omitempty"`
+}
+
+// TorrentInfo contains info about a specific torrent that was added to RealDebrid for a specific user.
+// It contains download info (progress, selected files) after one or more files of the torrent were selected to be downloaded.
+// It's similar to TorrentsInfo, but has some additional fields like OriginalFilename, OriginalBytes and Files.
 type TorrentInfo struct {
 	ID       string `json:"id,omitempty"`
 	Filename string `json:"filename,omitempty"`

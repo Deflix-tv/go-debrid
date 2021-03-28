@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"net/http"
 	"net/url"
@@ -12,8 +13,13 @@ import (
 	"go.uber.org/zap"
 )
 
-func (c *Client) get(ctx context.Context, url string) ([]byte, error) {
-	req, err := http.NewRequest("GET", url, nil)
+// data can be nil
+func (c *Client) get(ctx context.Context, url string, data url.Values) ([]byte, error) {
+	var body io.Reader
+	if len(data) > 0 {
+		body = strings.NewReader(data.Encode())
+	}
+	req, err := http.NewRequest("GET", url, body)
 	if err != nil {
 		return nil, fmt.Errorf("couldn't create GET request: %w", err)
 	}

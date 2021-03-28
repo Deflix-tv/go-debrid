@@ -56,7 +56,17 @@ func TestClient(t *testing.T) {
 	fmt.Printf("ID: %v\n", torrentID)
 	require.NotEmpty(t, torrentID)
 
-	// Get torrent info
+	// Get all torrents info
+	infoAll, err := client.GetTorrentsInfo(ctx, false)
+	require.NoError(t, err)
+	fmt.Printf("Torrents info: %+v\n", infoAll)
+	require.NotEmpty(t, infoAll)
+	require.NotEmpty(t, infoAll[0].ID)
+	// Although one or more files of the torrent are instantly available, the torrent info is user-specific.
+	// It's not regarded as downloaded if no file has been selected for download yet.
+	require.Equal(t, "waiting_files_selection", infoAll[0].Status)
+
+	// Get specific torrent info
 	info, err := client.GetTorrentInfo(ctx, torrentID)
 	require.NoError(t, err)
 	fmt.Printf("Torrent info: %+v\n", info)
