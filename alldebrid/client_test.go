@@ -48,8 +48,16 @@ func TestClient(t *testing.T) {
 	fmt.Printf("ID: %v\n", magnet.ID)
 	require.NotEmpty(t, magnet.ID)
 
-	// Get torrent info
-	status, err := client.GetStatus(ctx, magnet.ID)
+	// Get all torrents info
+	statusAll, err := client.GetStatus(ctx)
+	require.NoError(t, err)
+	fmt.Printf("Torrent status all: %+v\n", statusAll)
+	require.NotEmpty(t, statusAll)
+	require.NotEmpty(t, statusAll[0].ID)
+	require.Equal(t, alldebrid.StatusCode_Ready, statusAll[0].StatusCode)
+
+	// Get specific torrent info
+	status, err := client.GetStatusByID(ctx, magnet.ID)
 	require.NoError(t, err)
 	fmt.Printf("Torrent status: %+v\n", status)
 	require.NotEmpty(t, status.ID)

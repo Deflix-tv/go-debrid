@@ -133,14 +133,37 @@ func (c *Client) UploadMagnet(ctx context.Context, magnet string) (Magnet, error
 	return m, nil
 }
 
-// GetStatus fetches and returns the status of a torrent that was added to AllDebrid for a specific user.
+// GetStatus fetches and returns the status of all torrents that were added to AllDebrid for a specific user.
 // The ID must be the one returned from AllDebrid when adding the torrent to AllDebrid.
-func (c *Client) GetStatus(ctx context.Context, id int) (Status, error) {
+func (c *Client) GetStatus(ctx context.Context) ([]Status, error) {
 	c.logger.Debug("Getting status...", zapDebridService)
+
+	resBytes, err := c.get(ctx, c.opts.BaseURL+"/magnet/status")
+	if err != nil {
+		return nil, fmt.Errorf("couldn't get status: %w", err)
+	}
+	if gjson.GetBytes(resBytes, "status").String() != "success" {
+		errorCode := gjson.GetBytes(resBytes, "error.message").String()
+		return nil, fmt.Errorf("got error response from AllDebrid: %v", errorCode)
+	}
+	statusJSON := gjson.GetBytes(resBytes, "data.magnets").Raw
+	status := []Status{}
+	if err = json.Unmarshal([]byte(statusJSON), &status); err != nil {
+		return nil, fmt.Errorf("couldn't unmarshal status: %w", err)
+	}
+
+	c.logger.Debug("Got status", zap.String("status", fmt.Sprintf("%+v", status)), zapDebridService)
+	return status, nil
+}
+
+// GetStatusByID fetches and returns the status of a specific torrent that was added to AllDebrid for a specific user.
+// The ID must be the one returned from AllDebrid when adding the torrent to AllDebrid.
+func (c *Client) GetStatusByID(ctx context.Context, id int) (Status, error) {
+	c.logger.Debug("Getting status by ID...", zapDebridService)
 
 	resBytes, err := c.get(ctx, c.opts.BaseURL+"/magnet/status?id="+strconv.Itoa(id))
 	if err != nil {
-		return Status{}, fmt.Errorf("couldn't get status: %w", err)
+		return Status{}, fmt.Errorf("couldn't get status by ID: %w", err)
 	}
 	if gjson.GetBytes(resBytes, "status").String() != "success" {
 		errorCode := gjson.GetBytes(resBytes, "error.message").String()
@@ -149,10 +172,10 @@ func (c *Client) GetStatus(ctx context.Context, id int) (Status, error) {
 	statusJSON := gjson.GetBytes(resBytes, "data.magnets").Raw
 	status := Status{}
 	if err = json.Unmarshal([]byte(statusJSON), &status); err != nil {
-		return Status{}, fmt.Errorf("couldn't unmarshal status: %w", err)
+		return Status{}, fmt.Errorf("couldn't unmarshal status by ID: %w", err)
 	}
 
-	c.logger.Debug("Got status", zap.String("status", fmt.Sprintf("%+v", status)), zapDebridService)
+	c.logger.Debug("Got status by ID", zap.String("status", fmt.Sprintf("%+v", status)), zapDebridService)
 	return status, nil
 }
 
