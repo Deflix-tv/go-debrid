@@ -76,4 +76,13 @@ func TestClient(t *testing.T) {
 	require.NoError(t, err)
 	fmt.Printf("Largest download: %+v\n", dl)
 	require.NotEmpty(t, dl.Link)
+
+	// Delete transfer
+	err = client.DeleteTransfer(ctx, createdTransfer.ID)
+	require.NoError(t, err)
+
+	// The transfer list should now have one less item than earlier
+	newTransfers, err := client.ListTransfers(ctx)
+	require.NoError(t, err)
+	require.Less(t, len(newTransfers), len(transfers))
 }

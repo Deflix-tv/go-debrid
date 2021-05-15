@@ -234,3 +234,22 @@ Should lead to something like:
 ```
 
 The `"link"` URL is streamable and downloadable.
+
+## Delete a magnet
+
+Use the same ID we got when we added the magnet URL, `"456"` in our example.
+
+```bash
+curl --silent --get --data-urlencode "id=456" "https://api.alldebrid.com/v4/magnet/delete?agent=myAppName&apikey=${AD_APIKEY}" | jq .
+```
+
+Should lead to something like:
+
+```json
+{
+  "status": "success",
+  "data": {
+    "message": "Magnet was successfully deleted"
+  }
+}
+```

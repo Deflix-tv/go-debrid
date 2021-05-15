@@ -73,4 +73,12 @@ func TestClient(t *testing.T) {
 	require.NoError(t, err)
 	fmt.Printf("Download: %+v\n", dl)
 	require.NotEmpty(t, dl.Link)
+
+	// Delete torrent
+	err = client.DeleteMagnet(ctx, status.ID)
+	require.NoError(t, err)
+
+	// Getting torrent info should now lead to an error
+	_, err = client.GetStatusByID(ctx, status.ID)
+	require.EqualError(t, err, "got error response from AllDebrid: This magnet ID does not exists or is invalid")
 }

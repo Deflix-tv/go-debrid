@@ -11,6 +11,7 @@ Go library for the public APIs of debrid services like [RealDebrid](https://real
 - Add a link / torrent to a debrid service's downloads
 - Get status info about a link / torrent that the debrid service is downloading / has downloaded
 - Get the direct download link for a link / torrent after the debrid service has downloaded it
+- Delete the torrent that the debrid service is downloading / has downloaded
 
 ## Usage
 

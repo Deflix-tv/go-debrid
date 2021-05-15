@@ -97,3 +97,29 @@ func (c *Client) post(ctx context.Context, url string, data url.Values) ([]byte,
 	}
 	return resBody, nil
 }
+
+func (c *Client) delete(ctx context.Context, url string) error {
+	req, err := http.NewRequest("DELETE", url, nil)
+	if err != nil {
+		return fmt.Errorf("couldn't create GET request: %w", err)
+	}
+
+	req.Header.Set("Authorization", "Bearer "+c.auth.KeyOrToken)
+	for headerKey, headerVal := range c.opts.ExtraHeaders {
+		req.Header.Add(headerKey, headerVal)
+	}
+
+	c.logger.Debug("Sending request", zap.String("request", fmt.Sprintf("%+v", req)), zapDebridService)
+	res, err := c.httpClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("couldn't send DELETE request: %w", err)
+	}
+	defer res.Body.Close()
+
+	// Check server response status
+	if res.StatusCode != http.StatusNoContent {
+		return fmt.Errorf("bad HTTP response status: %v", res.Status)
+	}
+
+	return nil
+}

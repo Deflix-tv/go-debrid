@@ -156,8 +156,27 @@ func (c *Client) ListTransfers(ctx context.Context) ([]Transfer, error) {
 		return nil, fmt.Errorf("couldn't unmarshal transfer list: %w", err)
 	}
 
-	c.logger.Debug("Created direct download link", zap.String("transfers", fmt.Sprintf("%+v", transfers)), zapDebridService)
+	c.logger.Debug("Listed transfers", zap.String("transfers", fmt.Sprintf("%+v", transfers)), zapDebridService)
 	return transfers, nil
+}
+
+// DeleteTransfer deletes a transfer from the user's transfers.
+func (c *Client) DeleteTransfer(ctx context.Context, id string) error {
+	c.logger.Debug("Deleting transfer...", zapDebridService)
+
+	data := url.Values{}
+	data.Set("id", id)
+	resBytes, err := c.post(ctx, c.opts.BaseURL+"/transfer/delete", data, true)
+	if err != nil {
+		return fmt.Errorf("couldn't delete transfer: %w", err)
+	}
+	if gjson.GetBytes(resBytes, "status").String() != "success" {
+		message := gjson.GetBytes(resBytes, "message").String()
+		return fmt.Errorf("got error response from Premiumize: %v", message)
+	}
+
+	c.logger.Debug("Deleted transfer", zapDebridService)
+	return nil
 }
 
 // GetAccountInfo fetches and returns info about the user's account.

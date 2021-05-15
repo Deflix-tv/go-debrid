@@ -179,6 +179,24 @@ func (c *Client) GetStatusByID(ctx context.Context, id int) (Status, error) {
 	return status, nil
 }
 
+// DeleteMagnet deletes a magnet from the user's magnets.
+// The ID must be the one returned from AllDebrid when adding the magnet or getting status info about it.
+func (c *Client) DeleteMagnet(ctx context.Context, id int) error {
+	c.logger.Debug("Deleting magnet...", zapDebridService)
+
+	resBytes, err := c.get(ctx, c.opts.BaseURL+"/magnet/delete?id="+strconv.Itoa(id))
+	if err != nil {
+		return fmt.Errorf("couldn't delete magnet: %w", err)
+	}
+	if gjson.GetBytes(resBytes, "status").String() != "success" {
+		errorCode := gjson.GetBytes(resBytes, "error.message").String()
+		return fmt.Errorf("got error response from AllDebrid: %v", errorCode)
+	}
+
+	c.logger.Debug("Deleted magnet", zapDebridService)
+	return nil
+}
+
 // GetInstantAvailability fetches and returns info about the instant availability of a torrent.
 // The hashes can actually also be magnet URLs.
 // The returned map contains the hashes / magnet URLs of the torrents that are instantly available.

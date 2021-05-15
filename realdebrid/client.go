@@ -238,3 +238,16 @@ func (c *Client) SelectFiles(ctx context.Context, torrentID string, fileIDs ...i
 	c.logger.Debug("Selected files", zapDebridService)
 	return nil
 }
+
+// DeleteTorrent deletes a torrent from the user's torrents.
+func (c *Client) DeleteTorrent(ctx context.Context, id string) error {
+	c.logger.Debug("Deleting torrents...", zapDebridService)
+
+	err := c.delete(ctx, c.opts.BaseURL+"/torrents/delete/"+id)
+	if err != nil {
+		return fmt.Errorf("couldn't delete torrent: %w", err)
+	}
+
+	c.logger.Debug("Deleted torrent", zapDebridService)
+	return nil
+}

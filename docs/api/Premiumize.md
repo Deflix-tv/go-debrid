@@ -144,7 +144,7 @@ Should lead to something like:
   "status": "success",
   "transfers": [
     {
-      "id": "xyz321-VREg",
+      "id": "xyz321",
       "name": "Night Of The Living Dead (1968) [BluRay] [1080p] [YTS.AM]",
       "message": null,
       "status": "finished",
@@ -158,3 +158,19 @@ Should lead to something like:
 ```
 
 Note that the response contains *all* past transfers (except for the ones that were directly turned into a direct download link via the `/directdl` endpoint).
+
+## Delete transfer
+
+We have to use the ID that we got when creating the transfer or the one from the transfers list (which is the same ID), in our example `xyz321`.
+
+```bash
+curl --silent --data-urlencode "id=xyz321" "https://www.premiumize.me/api/transfer/delete?apikey=${PM_APIKEY}" | jq .
+```
+
+Should lead to something like:
+
+```json
+{
+  "status": "success"
+}
+```

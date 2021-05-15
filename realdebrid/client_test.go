@@ -98,4 +98,12 @@ func TestClient(t *testing.T) {
 	require.NoError(t, err)
 	fmt.Printf("Download: %+v\n", dl)
 	require.NotEmpty(t, dl.Download)
+
+	// Delete torrent
+	err = client.DeleteTorrent(ctx, info.ID)
+	require.NoError(t, err)
+
+	// Getting torrent info should now lead to an error
+	_, err = client.GetTorrentInfo(ctx, info.ID)
+	require.ErrorIs(t, err, realdebrid.ErrorInvalidID)
 }

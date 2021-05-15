@@ -208,3 +208,13 @@ Should lead to something like:
 ```
 
 The `"download"` URL is streamable and downloadable.
+
+## Delete a torrent
+
+We previously fetched the info about a torrent. We can delete it from the user's torrent list with the ID, `DEF456` in our example.
+
+```bash
+curl --silent -X DELETE -H "Authorization: Bearer ${RD_APITOKEN}" "https://api.real-debrid.com/rest/1.0/torrents/delete/DEF456"
+```
+
+There's no response body and the torrent is deleted.
